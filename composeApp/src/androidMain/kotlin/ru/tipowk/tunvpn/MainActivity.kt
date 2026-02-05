@@ -9,7 +9,6 @@ import androidx.activity.result.contract.ActivityResultContracts
 import org.koin.android.ext.android.inject
 import ru.tipowk.tunvpn.data.AndroidVpnController
 import ru.tipowk.tunvpn.data.VpnController
-import ru.tipowk.tunvpn.vpn.VpnConnectionManager
 
 class MainActivity : ComponentActivity() {
 
@@ -18,10 +17,11 @@ class MainActivity : ComponentActivity() {
     private val vpnPermissionLauncher = registerForActivityResult(
         ActivityResultContracts.StartActivityForResult()
     ) { result ->
+        val controller = vpnController as? AndroidVpnController
         if (result.resultCode == Activity.RESULT_OK) {
-            VpnConnectionManager.onVpnPermissionGranted(this)
+            controller?.onVpnPermissionGranted()
         } else {
-            VpnConnectionManager.onVpnPermissionDenied()
+            controller?.onVpnPermissionDenied()
         }
     }
 

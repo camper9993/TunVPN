@@ -37,9 +37,12 @@ object TProxyService {
      * Note: This method blocks until TProxyStopService is called!
      */
     fun startService(configPath: String, fd: Int) {
-        Log.d(TAG, "=== startService ===")
-        Log.d(TAG, "  configPath: $configPath")
-        Log.d(TAG, "  fd: $fd")
+        Log.d(TAG, "startService: configPath=$configPath, fd=$fd, isRunning=$isRunning")
+
+        if (fd <= 0) {
+            Log.e(TAG, "Invalid fd: $fd")
+            return
+        }
 
         if (isRunning) {
             Log.w(TAG, "Service already running!")
@@ -50,7 +53,7 @@ object TProxyService {
         try {
             Log.d(TAG, "Calling native TProxyStartService...")
             TProxyStartService(configPath, fd)
-            Log.d(TAG, "TProxyStartService returned (service stopped)")
+            Log.d(TAG, "TProxyStartService returned")
         } catch (e: Exception) {
             Log.e(TAG, "Error in TProxyStartService", e)
         } finally {
@@ -63,11 +66,10 @@ object TProxyService {
      * Stop the tun2socks service.
      */
     fun stopService() {
-        Log.d(TAG, "=== stopService ===")
-        Log.d(TAG, "  isRunning: $isRunning")
+        Log.d(TAG, "stopService: isRunning=$isRunning")
 
         if (!isRunning) {
-            Log.d(TAG, "Service not running, nothing to stop")
+            Log.d(TAG, "Service not running")
             return
         }
 
@@ -82,28 +84,28 @@ object TProxyService {
 
     /**
      * Get traffic statistics.
-     *
-     * @return LongArray [txPackets, txBytes, rxPackets, rxBytes] or empty array on error
+     * @return LongArray [txPackets, txBytes, rxPackets, rxBytes]
      */
     fun getStats(): LongArray {
         return try {
-            val stats = TProxyGetStats()
-            Log.v(TAG, "Stats: txPkts=${stats[0]}, txBytes=${stats[1]}, rxPkts=${stats[2]}, rxBytes=${stats[3]}")
-            stats
+            TProxyGetStats()
         } catch (e: Exception) {
             Log.e(TAG, "Error getting stats", e)
             longArrayOf(0, 0, 0, 0)
         }
     }
 
-    /**
-     * Check if service is running.
-     */
     fun isRunning(): Boolean = isRunning
 
-    // --- Native methods ---
-    // These names MUST match what the v2rayNG library expects
+    /**
+     * Force reset running state. Call this if the native library is stuck.
+     */
+    fun forceReset() {
+        Log.w(TAG, "forceReset: setting isRunning to false")
+        isRunning = false
+    }
 
+    // Native methods
     @JvmStatic
     private external fun TProxyStartService(configPath: String, fd: Int)
 

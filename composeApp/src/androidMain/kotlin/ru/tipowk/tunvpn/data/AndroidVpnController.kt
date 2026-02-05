@@ -13,20 +13,23 @@ import java.lang.ref.WeakReference
 
 /**
  * Android implementation of VpnController.
- * Delegates to VpnConnectionManager singleton and holds a weak reference
+ * Delegates to VpnConnectionManager and holds a weak reference
  * to the current Activity for VPN permission handling.
  */
-class AndroidVpnController(private val appContext: Context) : VpnController {
+class AndroidVpnController(
+    private val appContext: Context,
+    private val vpnConnectionManager: VpnConnectionManager,
+) : VpnController {
 
     companion object {
         private const val TAG = "AndroidVpnController"
     }
 
     override val connectionState: StateFlow<ConnectionState>
-        get() = VpnConnectionManager.connectionState
+        get() = vpnConnectionManager.connectionState
 
     override val trafficStats: StateFlow<TrafficStats>
-        get() = VpnConnectionManager.trafficStats
+        get() = vpnConnectionManager.trafficStats
 
     private var activityRef: WeakReference<Activity>? = null
     private var vpnPermissionLauncher: ((Intent) -> Unit)? = null
@@ -49,6 +52,20 @@ class AndroidVpnController(private val appContext: Context) : VpnController {
         vpnPermissionLauncher = null
     }
 
+    /**
+     * Called when user grants VPN permission.
+     */
+    fun onVpnPermissionGranted() {
+        vpnConnectionManager.onVpnPermissionGranted()
+    }
+
+    /**
+     * Called when user denies VPN permission.
+     */
+    fun onVpnPermissionDenied() {
+        vpnConnectionManager.onVpnPermissionDenied()
+    }
+
     override fun requestConnect(config: ServerConfig, selectedApps: Set<String>) {
         val activity = activityRef?.get()
         if (activity == null) {
@@ -61,12 +78,18 @@ class AndroidVpnController(private val appContext: Context) : VpnController {
             return
         }
         Log.d(TAG, "requestConnect: connecting...")
-        VpnConnectionManager.connect(activity, config, selectedApps, launcher)
+        vpnConnectionManager.connect(activity, config, selectedApps, launcher)
     }
 
     override fun requestDisconnect() {
         Log.d(TAG, "requestDisconnect called")
-        // Use application context for disconnect - doesn't need Activity
-        VpnConnectionManager.disconnect(appContext)
+        vpnConnectionManager.disconnect()
     }
+
+    override fun restartWithNewApps(config: ServerConfig, selectedApps: Set<String>) {
+        Log.d(TAG, "restartWithNewApps called with ${selectedApps.size} apps")
+        vpnConnectionManager.restartWithNewApps(config, selectedApps)
+    }
+
+    override fun isConnected(): Boolean = vpnConnectionManager.isConnected()
 }

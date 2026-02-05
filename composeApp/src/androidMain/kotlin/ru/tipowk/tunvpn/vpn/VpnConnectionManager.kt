@@ -13,8 +13,10 @@ import ru.tipowk.tunvpn.model.ServerConfig
 import ru.tipowk.tunvpn.model.TrafficStats
 
 /**
- * Singleton that manages VPN connection state and bridges between
+ * Manages VPN connection state and bridges between
  * the TunVpnService (Android VpnService) and the UI layer (ViewModels).
+ *
+ * Injected as singleton via Koin.
  *
  * Supports real VPN mode with per-app routing via hev-socks5-tunnel (tun2socks).
  *
@@ -25,9 +27,11 @@ import ru.tipowk.tunvpn.model.TrafficStats
  * 4. TunVpnService creates TUN -> Xray SOCKS5 -> tun2socks
  * 5. UI observes connectionState and trafficStats flows
  */
-object VpnConnectionManager {
+class VpnConnectionManager(private val appContext: Context) {
 
-    private const val TAG = "VpnConnectionManager"
+    companion object {
+        private const val TAG = "VpnConnectionManager"
+    }
 
     private val _connectionState = MutableStateFlow(ConnectionState.DISCONNECTED)
     val connectionState: StateFlow<ConnectionState> = _connectionState.asStateFlow()
@@ -72,16 +76,16 @@ object VpnConnectionManager {
             vpnPermissionLauncher(prepareIntent)
         } else {
             Log.d(TAG, "VPN permission already granted")
-            startVpnService(activity)
+            startVpnService()
         }
     }
 
     /**
      * Called when user grants VPN permission from the system dialog.
      */
-    fun onVpnPermissionGranted(context: Context) {
+    fun onVpnPermissionGranted() {
         Log.d(TAG, "onVpnPermissionGranted")
-        startVpnService(context)
+        startVpnService()
     }
 
     /**
@@ -97,7 +101,7 @@ object VpnConnectionManager {
     /**
      * Request disconnection.
      */
-    fun disconnect(context: Context) {
+    fun disconnect() {
         val currentState = _connectionState.value
         Log.d(TAG, "disconnect() called, currentState=$currentState")
 
@@ -107,10 +111,38 @@ object VpnConnectionManager {
         }
 
         _connectionState.value = ConnectionState.DISCONNECTING
-        TunVpnService.stop(context)
+        TunVpnService.stop(appContext)
     }
 
-    private fun startVpnService(context: Context) {
+    /**
+     * Restart VPN with updated app list.
+     * Call this when user changes selected apps while VPN is running.
+     * Simply sends a new START intent - TunVpnService will handle stopping the old VPN internally.
+     */
+    fun restartWithNewApps(config: ServerConfig, selectedApps: Set<String>) {
+        val currentState = _connectionState.value
+        Log.d(TAG, "restartWithNewApps() called, currentState=$currentState")
+        Log.d(TAG, "  new selectedApps: $selectedApps")
+
+        if (currentState != ConnectionState.CONNECTED && currentState != ConnectionState.CONNECTING) {
+            Log.d(TAG, "Not connected, ignoring restart request")
+            return
+        }
+
+        Log.d(TAG, "Restarting VPN with new app list (sending new START)...")
+        // State stays CONNECTED or CONNECTING - service handles the restart internally
+
+        // Just send a new START - TunVpnService will stop the old VPN and start new one
+        val configJson = XrayConfigBuilder.build(config)
+        TunVpnService.start(appContext, configJson, selectedApps)
+    }
+
+    /**
+     * Check if VPN is currently connected.
+     */
+    fun isConnected(): Boolean = _connectionState.value == ConnectionState.CONNECTED
+
+    private fun startVpnService() {
         val config = pendingConfig ?: run {
             Log.e(TAG, "No pending config!")
             _connectionState.value = ConnectionState.DISCONNECTED
@@ -124,25 +156,25 @@ object VpnConnectionManager {
         val configJson = XrayConfigBuilder.build(config)
         Log.d(TAG, "  configJson length: ${configJson.length}")
 
-        TunVpnService.start(context, configJson, pendingSelectedApps)
+        TunVpnService.start(appContext, configJson, pendingSelectedApps)
     }
 
     // --- Called by TunVpnService to update state ---
 
-    internal fun onServiceConnected() {
+    fun onServiceConnected() {
         Log.d(TAG, "onServiceConnected")
         _connectionState.value = ConnectionState.CONNECTED
         pendingConfig = null
         pendingSelectedApps = emptySet()
     }
 
-    internal fun onServiceDisconnected() {
+    fun onServiceDisconnected() {
         Log.d(TAG, "onServiceDisconnected")
         _connectionState.value = ConnectionState.DISCONNECTED
         _trafficStats.value = TrafficStats()
     }
 
-    internal fun onServiceError() {
+    fun onServiceError() {
         Log.e(TAG, "onServiceError")
         _connectionState.value = ConnectionState.DISCONNECTED
         _trafficStats.value = TrafficStats()
@@ -150,7 +182,7 @@ object VpnConnectionManager {
         pendingSelectedApps = emptySet()
     }
 
-    internal fun updateTrafficStats(stats: TrafficStats) {
+    fun updateTrafficStats(stats: TrafficStats) {
         _trafficStats.value = stats
     }
 }

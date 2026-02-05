@@ -20,4 +20,10 @@ class IosVpnController : VpnController {
     override fun requestDisconnect() {
         // TODO: iOS VPN not yet implemented
     }
+
+    override fun restartWithNewApps(config: ServerConfig, selectedApps: Set<String>) {
+        // TODO: iOS VPN not yet implemented
+    }
+
+    override fun isConnected(): Boolean = false
 }

@@ -7,7 +7,9 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
+import ru.tipowk.tunvpn.data.ServerRepository
 import ru.tipowk.tunvpn.data.SettingsRepository
+import ru.tipowk.tunvpn.data.VpnController
 import ru.tipowk.tunvpn.model.AppInfo
 
 data class AppSelectionUiState(
@@ -16,6 +18,7 @@ data class AppSelectionUiState(
     val showSystemApps: Boolean = false,
     val searchQuery: String = "",
     val isLoading: Boolean = true,
+    val vpnNeedsRestart: Boolean = false,
 )
 
 /**
@@ -32,6 +35,8 @@ interface InstalledAppsProvider {
  */
 class AppSelectionViewModel(
     private val settingsRepository: SettingsRepository,
+    private val serverRepository: ServerRepository,
+    private val vpnController: VpnController,
     private val installedAppsProvider: InstalledAppsProvider,
 ) : ViewModel() {
 
@@ -64,14 +69,29 @@ class AppSelectionViewModel(
         } else {
             current + packageName
         }
-        _uiState.value = _uiState.value.copy(selectedPackages = updated)
+        _uiState.value = _uiState.value.copy(
+            selectedPackages = updated,
+            vpnNeedsRestart = vpnController.isConnected(),
+        )
 
-        // Save to settings
+        // Save to settings and restart VPN if connected
         viewModelScope.launch {
             val settings = settingsRepository.getSettings().first()
             settingsRepository.updateSettings(
                 settings.copy(selectedAppPackages = updated)
             )
+
+            // If VPN is connected, restart it with new app list
+            if (vpnController.isConnected()) {
+                val activeServerId = settings.activeServerId
+                if (activeServerId != null) {
+                    val servers = serverRepository.getServers().first()
+                    val activeServer = servers.find { it.id == activeServerId }
+                    if (activeServer != null) {
+                        vpnController.restartWithNewApps(activeServer, updated)
+                    }
+                }
+            }
         }
     }
 

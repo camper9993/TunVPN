@@ -23,4 +23,15 @@ interface VpnController {
      * Request VPN disconnection.
      */
     fun requestDisconnect()
+
+    /**
+     * Restart VPN with a new app list while connected.
+     * Used when user changes selected apps during active VPN session.
+     */
+    fun restartWithNewApps(config: ServerConfig, selectedApps: Set<String>)
+
+    /**
+     * Check if VPN is currently connected.
+     */
+    fun isConnected(): Boolean
 }
