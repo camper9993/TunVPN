@@ -34,7 +34,8 @@ object TProxyService {
      * @param configPath Path to YAML config file
      * @param fd TUN file descriptor
      *
-     * Note: This method blocks until TProxyStopService is called!
+     * Note: TProxyStartService creates a worker thread and returns immediately!
+     * The native library has its own is_working flag that tracks the actual state.
      */
     fun startService(configPath: String, fd: Int) {
         Log.d(TAG, "startService: configPath=$configPath, fd=$fd, isRunning=$isRunning")
@@ -44,35 +45,30 @@ object TProxyService {
             return
         }
 
-        if (isRunning) {
-            Log.w(TAG, "Service already running!")
-            return
-        }
+        // Don't check isRunning - just call native function
+        // The native library has its own thread-safe is_working check
 
-        isRunning = true
         try {
             Log.d(TAG, "Calling native TProxyStartService...")
             TProxyStartService(configPath, fd)
-            Log.d(TAG, "TProxyStartService returned")
+            // TProxyStartService creates a thread and returns immediately - this is normal!
+            Log.d(TAG, "TProxyStartService returned (thread created)")
+            isRunning = true
         } catch (e: Exception) {
             Log.e(TAG, "Error in TProxyStartService", e)
-        } finally {
             isRunning = false
-            Log.d(TAG, "isRunning set to false")
         }
     }
 
     /**
      * Stop the tun2socks service.
+     * Note: TProxyStopService calls pthread_join internally, so it blocks until the worker thread exits.
      */
     fun stopService() {
         Log.d(TAG, "stopService: isRunning=$isRunning")
 
-        if (!isRunning) {
-            Log.d(TAG, "Service not running")
-            return
-        }
-
+        // Always try to stop native library, even if our flag says not running
+        // The native library has its own is_working flag
         try {
             Log.d(TAG, "Calling native TProxyStopService...")
             TProxyStopService()
@@ -80,6 +76,8 @@ object TProxyService {
         } catch (e: Exception) {
             Log.e(TAG, "Error in TProxyStopService", e)
         }
+
+        isRunning = false
     }
 
     /**

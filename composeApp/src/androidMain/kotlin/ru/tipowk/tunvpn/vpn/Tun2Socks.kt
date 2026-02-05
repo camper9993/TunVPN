@@ -12,26 +12,26 @@ object Tun2Socks {
     private const val TAG = "Tun2Socks"
 
     /**
-     * Generate YAML config for hev-socks5-tunnel (same format as v2rayNG).
+     * Generate YAML config for hev-socks5-tunnel.
+     * Format based on sockstun (official Android app using this library).
+     * NOTE: Do NOT include 'name' field - the TUN fd is passed directly from VpnService.
      */
     fun generateConfig(
         socksPort: Int = XrayConfigBuilder.SOCKS_PORT,
         tunMtu: Int = 1500,
-        tunIpv4: String = "10.0.0.2",
     ): String {
-        // Format matching v2rayNG exactly
+        // Format matching sockstun exactly - misc first, then tunnel, then socks5
+        // NO 'name' or 'ipv4' fields - fd is passed directly
         return """
+misc:
+  task-stack-size: 81920
+  log-level: debug
 tunnel:
   mtu: $tunMtu
-  ipv4: $tunIpv4
 socks5:
   port: $socksPort
-  address: 127.0.0.1
+  address: '127.0.0.1'
   udp: 'udp'
-misc:
-  tcp-read-write-timeout: 300000
-  udp-read-write-timeout: 60000
-  log-level: debug
 """.trimIndent()
     }
 
@@ -46,14 +46,13 @@ misc:
             return
         }
 
-        // Reset state if stuck from previous crash
+        // If still running, something is wrong - previous stop didn't complete
         if (TProxyService.isRunning()) {
-            Log.w(TAG, "TProxyService still thinks it's running, forcing reset")
-            TProxyService.forceReset()
+            Log.e(TAG, "TProxyService still running! Cannot start new tunnel.")
+            return
         }
 
         val config = generateConfig(socksPort = socksPort)
-        // Use filesDir and same filename as v2rayNG
         val configFile = File(filesDir, "hev-socks5-tunnel.yaml")
         configFile.writeText(config)
         Log.d(TAG, "Config written to ${configFile.absolutePath}:\n$config")

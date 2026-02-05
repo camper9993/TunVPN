@@ -174,10 +174,18 @@ class TunVpnService : VpnService() {
         statsJob?.cancel()
         statsJob = null
 
-        // 2. Stop tun2socks
+        // 2. Stop tun2socks and WAIT for it to fully stop
         Tun2Socks.stopTunnel()
         tun2socksJob?.join()
         tun2socksJob = null
+
+        // Wait for native library to actually stop
+        var waitCount = 0
+        while (Tun2Socks.isRunning() && waitCount < 30) {
+            Log.d(TAG, "Waiting for tun2socks to stop... ($waitCount)")
+            delay(100)
+            waitCount++
+        }
 
         // 3. Stop Xray
         try {
