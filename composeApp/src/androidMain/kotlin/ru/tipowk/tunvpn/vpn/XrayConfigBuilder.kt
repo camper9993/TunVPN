@@ -66,7 +66,10 @@ object XrayConfigBuilder {
                             add(kotlinx.serialization.json.JsonPrimitive("http"))
                             add(kotlinx.serialization.json.JsonPrimitive("tls"))
                             add(kotlinx.serialization.json.JsonPrimitive("quic"))
+                            add(kotlinx.serialization.json.JsonPrimitive("fakedns"))
                         })
+                        put("metadataOnly", false)
+                        put("routeOnly", false)
                     })
                 })
 
@@ -98,20 +101,33 @@ object XrayConfigBuilder {
                 })
             })
 
-            // DNS - resolve through proxy
+            // DNS configuration - Xray will resolve domains through proxy
             put("dns", buildJsonObject {
                 put("servers", buildJsonArray {
-                    // Use Cloudflare DNS through proxy
-                    add(kotlinx.serialization.json.JsonPrimitive("1.1.1.1"))
+                    // Primary: Cloudflare DNS through proxy outbound
+                    add(buildJsonObject {
+                        put("address", "1.1.1.1")
+                        put("port", 53)
+                        put("domains", buildJsonArray {})  // All domains
+                    })
+                    // Fallback: Google DNS
                     add(kotlinx.serialization.json.JsonPrimitive("8.8.8.8"))
                 })
                 put("queryStrategy", "UseIP")
+                put("disableCache", false)
+                put("disableFallback", false)
             })
 
             // Routing
             put("routing", buildJsonObject {
-                put("domainStrategy", "IPIfNonMatch")
+                put("domainStrategy", "AsIs")
                 put("rules", buildJsonArray {
+                    // DNS queries (port 53) should go through proxy
+                    add(buildJsonObject {
+                        put("type", "field")
+                        put("outboundTag", "proxy")
+                        put("port", "53")
+                    })
                     // Bypass localhost
                     add(buildJsonObject {
                         put("type", "field")
@@ -120,7 +136,7 @@ object XrayConfigBuilder {
                             add(kotlinx.serialization.json.JsonPrimitive("127.0.0.0/8"))
                         })
                     })
-                    // Everything else goes through proxy (including DNS)
+                    // Everything else goes through proxy
                     add(buildJsonObject {
                         put("type", "field")
                         put("outboundTag", "proxy")

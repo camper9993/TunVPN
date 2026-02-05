@@ -38,11 +38,6 @@
                 android:value="true" />
         </service>
 
-        <!-- Proxy-only service (no VPN, just SOCKS5/HTTP proxy) -->
-        <service
-            android:name=".vpn.ProxyService"
-            android:exported="false"
-            android:foregroundServiceType="specialUse" />
     </application>
 
 </manifest>

@@ -31,12 +31,13 @@ object Tun2Socks {
         socksPort: Int = XrayConfigBuilder.SOCKS_PORT,
         tunMtu: Int = 1500,
         tunIpv4: String = "10.0.0.2",
-        dnsServer: String = "1.1.1.1",
         logLevel: String = "debug"
     ): String {
-        // DNS fakе address - tun2socks will intercept DNS queries to this address
-        // and forward them through SOCKS5 to the real DNS server
-        val fakeDns = "198.18.0.1"
+        // DNS configuration:
+        // - Apps send DNS queries to system DNS (from VpnService.addDnsServer)
+        // - TUN captures these queries
+        // - tun2socks forwards them through SOCKS5 to Xray
+        // - Xray resolves via its configured DNS servers (1.1.1.1, 8.8.8.8)
 
         val config = """
 tunnel:

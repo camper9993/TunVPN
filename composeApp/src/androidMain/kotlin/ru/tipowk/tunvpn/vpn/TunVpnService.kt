@@ -201,11 +201,18 @@ class TunVpnService : VpnService() {
             val builder = Builder()
                 .setSession("TunVPN")
                 .addAddress("10.0.0.2", 32)
-                .addRoute("0.0.0.0", 0)        // Route all IPv4
-                .addDnsServer("1.1.1.1")
-                .addDnsServer("8.8.8.8")
                 .setMtu(1500)
                 .setBlocking(false)
+
+            // Route all IPv4 traffic through VPN
+            builder.addRoute("0.0.0.0", 0)
+            Log.d(TAG, "Added route: 0.0.0.0/0")
+
+            // DNS servers - these will be used by apps going through VPN
+            // The DNS queries will be captured by TUN and forwarded via tun2socks -> Xray
+            builder.addDnsServer("1.1.1.1")
+            builder.addDnsServer("8.8.8.8")
+            Log.d(TAG, "Added DNS servers: 1.1.1.1, 8.8.8.8")
 
             // Per-app VPN routing
             if (selectedApps.isNotEmpty()) {
