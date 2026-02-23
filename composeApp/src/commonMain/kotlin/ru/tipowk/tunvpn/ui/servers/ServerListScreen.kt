@@ -11,6 +11,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -20,6 +21,8 @@ import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.ContentPaste
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -27,6 +30,7 @@ import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
@@ -98,6 +102,14 @@ fun ServerListScreen(
                 .background(MaterialTheme.colorScheme.background)
                 .padding(paddingValues),
         ) {
+            // VLESS input card
+            VlessInputCard(
+                value = uiState.vlessInput,
+                onValueChange = { viewModel.onVlessInputChange(it) },
+                onPaste = { viewModel.pasteFromClipboard() },
+                onImport = { viewModel.importVlessLink() },
+            )
+
             if (uiState.servers.isEmpty()) {
                 Box(
                     modifier = Modifier
@@ -115,13 +127,7 @@ fun ServerListScreen(
                         TextButton(onClick = onAddServer) {
                             Icon(Icons.Default.Add, contentDescription = null)
                             Spacer(modifier = Modifier.width(8.dp))
-                            Text("Add server")
-                        }
-                        Spacer(modifier = Modifier.height(8.dp))
-                        TextButton(onClick = { viewModel.importFromClipboard() }) {
-                            Icon(Icons.Default.ContentPaste, contentDescription = null)
-                            Spacer(modifier = Modifier.width(8.dp))
-                            Text("Import from clipboard")
+                            Text("Add manually")
                         }
                     }
                 }
@@ -144,18 +150,68 @@ fun ServerListScreen(
                         )
                     }
                 }
+            }
+        }
+    }
+}
 
-                // Import from clipboard button (when servers exist)
-                TextButton(
-                    onClick = { viewModel.importFromClipboard() },
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(16.dp),
-                ) {
-                    Icon(Icons.Default.ContentPaste, contentDescription = null)
-                    Spacer(modifier = Modifier.width(8.dp))
-                    Text("Import from clipboard")
-                }
+@Composable
+private fun VlessInputCard(
+    value: String,
+    onValueChange: (String) -> Unit,
+    onPaste: () -> Unit,
+    onImport: () -> Unit,
+) {
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(16.dp),
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.surfaceVariant,
+        ),
+        shape = RoundedCornerShape(12.dp),
+    ) {
+        Column(
+            modifier = Modifier.padding(16.dp),
+        ) {
+            Text(
+                text = "Import VLESS Server",
+                style = MaterialTheme.typography.titleSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+
+            Spacer(modifier = Modifier.height(12.dp))
+
+            OutlinedTextField(
+                value = value,
+                onValueChange = onValueChange,
+                modifier = Modifier.fillMaxWidth(),
+                placeholder = { Text("vless://...") },
+                singleLine = true,
+                trailingIcon = {
+                    IconButton(onClick = onPaste) {
+                        Icon(
+                            imageVector = Icons.Default.ContentPaste,
+                            contentDescription = "Paste",
+                        )
+                    }
+                },
+            )
+
+            Spacer(modifier = Modifier.height(12.dp))
+
+            Button(
+                onClick = onImport,
+                modifier = Modifier.fillMaxWidth(),
+                enabled = value.isNotBlank(),
+            ) {
+                Icon(
+                    imageVector = Icons.Default.Add,
+                    contentDescription = null,
+                    modifier = Modifier.size(18.dp),
+                )
+                Spacer(modifier = Modifier.width(8.dp))
+                Text("Import")
             }
         }
     }

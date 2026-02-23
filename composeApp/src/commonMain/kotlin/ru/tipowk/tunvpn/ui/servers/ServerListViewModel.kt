@@ -18,6 +18,7 @@ data class ServerListUiState(
     val activeServerId: String? = null,
     val importError: String? = null,
     val importSuccess: String? = null,
+    val vlessInput: String = "",
 )
 
 class ServerListViewModel(
@@ -108,5 +109,39 @@ class ServerListViewModel(
 
     fun clearImportSuccess() {
         _uiState.value = _uiState.value.copy(importSuccess = null)
+    }
+
+    fun onVlessInputChange(value: String) {
+        _uiState.value = _uiState.value.copy(vlessInput = value, importError = null)
+    }
+
+    fun importVlessLink() {
+        val input = _uiState.value.vlessInput.trim()
+        if (input.isEmpty()) {
+            _uiState.value = _uiState.value.copy(importError = "Please enter a VLESS link")
+            return
+        }
+
+        val config = VlessUriParser.parse(input)
+        if (config == null) {
+            _uiState.value = _uiState.value.copy(importError = "Invalid VLESS link")
+            return
+        }
+
+        viewModelScope.launch {
+            serverRepository.addServer(config)
+            _uiState.value = _uiState.value.copy(
+                vlessInput = "",
+                importError = null,
+                importSuccess = "Server '${config.name}' imported",
+            )
+        }
+    }
+
+    fun pasteFromClipboard() {
+        val text = clipboardProvider.getText()
+        if (text != null) {
+            _uiState.value = _uiState.value.copy(vlessInput = text, importError = null)
+        }
     }
 }
